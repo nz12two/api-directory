@@ -1,0 +1,32 @@
+# Dependências
+node_modules/
+
+# Arquivos de ambiente e segredos
+.env
+.env.*
+*.local
+token.txt
+config.json
+
+# Cache e dados locais
+*.db
+*.sqlite
+data/
+logs/
+.cache/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp

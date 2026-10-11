@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <title>Free API Directory | 1400+ APIs</title>
+</head>
+<body>
+<header>
+    <div class="header-top">
+        <h1><i class="fas fa-code-branch"></i> API <span>Directory</span></h1>
+        <div class="lang-switch">
+            <button class="lang-btn active" data-lang="pt"><i class="fas fa-flag"></i> PT</button>
+            <button class="lang-btn" data-lang="en"><i class="fas fa-flag-usa"></i> EN</button>
+        </div>
+        <div class="header-controls">
+            <div class="search-wrapper">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="search" placeholder="Buscar APIs...">
+            </div>
+            <select id="sort-select">
+                <option value="category"><i class="fas fa-folder"></i> Ordenar: Categoria</option>
+                <option value="name"><i class="fas fa-sort-alpha-down"></i> Ordenar: Nome A-Z</option>
+                <option value="name-desc"><i class="fas fa-sort-alpha-up"></i> Ordenar: Nome Z-A</option>
+                <option value="favorites"><i class="fas fa-star"></i> Favoritos primeiro</option>
+            </select>
+        </div>
+    </div>
+</header>
+
+<div class="stats-bar">
+    <div class="stats-content">
+        <div class="stat-item"><i class="fas fa-database"></i> <strong id="total-apis">-</strong> <span id="stat-apis">APIs encontradas</span></div>
+        <div class="stat-item"><i class="fas fa-tags"></i> <strong id="total-categories">-</strong> <span id="stat-categories">categorias</span></div>
+        <div class="stat-item"><i class="fas fa-lock-open"></i> <strong id="no-auth-count">-</strong> <span id="stat-noauth">sem autenticação</span></div>
+        <div class="stat-item"><i class="fas fa-heart"></i> <strong id="favorites-count">0</strong> <span id="stat-favorites">favoritas</span></div>
+        <span id="last-fetch" class="stat-item"><i class="far fa-calendar-alt"></i> Última atualização: -</span>
+        <button class="refresh-btn" id="refresh-btn"><i class="fas fa-sync-alt"></i> Atualizar</button>
+        <button class="export-btn" id="export-csv-btn"><i class="fas fa-download"></i> Exportar CSV</button>
+    </div>
+</div>
+
+<div class="categories-wrapper">
+
+    <button class="scroll-btn left hidden" id="scroll-left">
+        <i class="fas fa-chevron-left"></i>
+    </button>
+
+    <div class="categories-bar">
+        <div class="categories-content" id="categories-bar">
+            <div class="cat-chip active" data-category="all">
+                <i class="fas fa-layer-group"></i> Todas
+                <span class="cat-count" id="count-all"></span>
+            </div>
+        </div>
+    </div>
+
+    <button class="scroll-btn right hidden" id="scroll-right">
+        <i class="fas fa-chevron-right"></i>
+    </button>
+
+</div>
+
+<main>
+    <div class="api-grid" id="api-grid">
+        <div class="loading">
+            <div class="spinner"></div>
+            <p id="loading-text"><i class="fas fa-spinner fa-spin"></i> Carregando APIs...</p>
+        </div>
+    </div>
+    <div class="pagination" id="pagination"></div>
+</main>
+
+<div class="last-updated" id="last-updated">
+    <i class="fab fa-github"></i> Dados obtidos de <a href="https://github.com/public-apis/public-apis" target="_blank">public-apis/public-apis</a> no GitHub
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
