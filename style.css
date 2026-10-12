@@ -718,3 +718,245 @@ main {
     .refresh-btn { margin-left: 0; }
     .categories-wrapper { padding: 0.6rem 1rem; }
 }
+
+/* ========================================================================
+   BLOCO NOVO — site ao vivo (playground, teste em lote, header v2).
+   O CSS antigo acima foi mantido: as classes que sumiram (.translate-progress,
+   .refresh-btn, .export-btn) sao inertes, as que voltaram nao conflitam.
+   ======================================================================== */
+
+[hidden] { display: none !important; }
+body.modal-open { overflow: hidden; }
+
+/* ---------- header v2 ---------- */
+.brand h1 { margin-bottom: 0.15rem; }
+.tagline {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    font-weight: 400;
+    letter-spacing: 0;
+    background: none;
+    -webkit-text-fill-color: var(--text-muted);
+    -webkit-background-clip: unset;
+    background-clip: unset;
+}
+
+.ghost-btn {
+    background: var(--surface);
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+.ghost-btn:hover { color: var(--text); }
+.ghost-btn.small { padding: 0.35rem 0.65rem; font-size: 0.78rem; }
+.ghost-btn.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: white;
+    border-color: transparent;
+}
+.ghost-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.primary-btn {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: white;
+    border-color: transparent;
+    font-weight: 600;
+}
+.primary-btn:hover { filter: brightness(1.1); }
+.primary-btn:disabled { opacity: 0.6; cursor: wait; }
+
+.search-kbd {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 0.05rem 0.35rem;
+    pointer-events: none;
+}
+
+/* ---------- card: acoes ---------- */
+.card-actions { display: flex; align-items: center; gap: 0.4rem; }
+
+.test-btn {
+    width: 30px;
+    height: 30px;
+    justify-content: center;
+    padding: 0;
+    border-radius: 8px;
+    background: rgba(52, 211, 153, 0.12);
+    border: 1px solid rgba(52, 211, 153, 0.35);
+    color: var(--green);
+    font-size: 0.75rem;
+}
+.test-btn:hover { background: rgba(52, 211, 153, 0.25); border-color: var(--green); }
+
+.health-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+.health-badge.ok { background: rgba(52, 211, 153, 0.14); color: var(--green); border: 1px solid rgba(52, 211, 153, 0.35); }
+.health-badge.dead { background: rgba(248, 113, 113, 0.12); color: var(--red); border: 1px solid rgba(248, 113, 113, 0.3); }
+
+.fa-xs { font-size: 0.65em; opacity: 0.55; }
+
+/* ---------- barra de teste em lote ---------- */
+.probe-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.probe-info { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--text-muted); }
+.probe-info > i { color: var(--accent); }
+.probe-hint { color: var(--text-muted); opacity: 0.7; font-size: 0.72rem; flex-basis: 100%; }
+.probe-progress {
+    flex: 1;
+    min-width: 160px;
+    height: 6px;
+    background: var(--card);
+    border-radius: 999px;
+    overflow: hidden;
+}
+.probe-progress-inner {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transition: width 0.25s ease;
+}
+
+/* ---------- modal / playground ---------- */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(6px);
+    z-index: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    animation: fadeIn 0.15s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.modal {
+    background: var(--surface-solid);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    width: min(760px, 100%);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow);
+}
+.modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.1rem 1.4rem;
+    border-bottom: 1px solid var(--border);
+}
+.modal-head h2 { font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; gap: 0.55rem; }
+.modal-head h2 i { color: var(--accent); }
+.modal-close { width: 32px; height: 32px; padding: 0; justify-content: center; border-radius: 8px; }
+.modal-body { padding: 1.25rem 1.4rem; overflow-y: auto; }
+
+.pg-desc { font-size: 0.87rem; color: var(--text-muted); margin-bottom: 1rem; }
+.pg-field { display: block; }
+.pg-field > span { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.35rem; }
+#pg-endpoint {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.6rem 0.8rem;
+    border-radius: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    outline: none;
+}
+#pg-endpoint:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15); }
+.pg-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 0.85rem 0; }
+
+.pg-result {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.9rem;
+    margin-bottom: 1.1rem;
+}
+.pg-metrics { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.pg-metric { display: flex; flex-direction: column; gap: 0.15rem; }
+.pg-metric > span { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+.pg-metric strong { font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; }
+.pg-metric strong.good { color: var(--green); }
+.pg-metric strong.bad { color: var(--red); }
+
+.pg-body, .snippet-body {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.76rem;
+    line-height: 1.55;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.8rem;
+    max-height: 260px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #cbd5e1;
+    margin-bottom: 0.6rem;
+}
+.pg-body.error { color: #fca5a5; }
+
+.pg-snippets h3 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem; }
+.snippet-tabs { display: flex; gap: 0.3rem; margin-bottom: 0.55rem; }
+.snippet-tab { padding: 0.3rem 0.7rem; font-size: 0.76rem; border-radius: 8px; }
+.snippet-tab.active { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; border-color: transparent; }
+
+.toast { transition: opacity 0.25s ease, transform 0.25s ease; }
+.toast:not(.show) { opacity: 0; transform: translateX(20px); pointer-events: none; }
+
+@media (max-width: 640px) {
+    header { padding: 1rem; }
+    .header-controls { gap: 0.5rem; }
+    #search { width: 100%; }
+    .search-wrapper { flex: 1 1 100%; }
+    .stats-bar, .categories-wrapper { padding-left: 1rem; padding-right: 1rem; }
+    .modal-body { padding: 1rem; }
+}
+
+/* Linha da sondagem externa: a unica que responde "o host esta no ar",
+   separada da do browser, que so responde "dá para ler daqui". */
+.pg-ci-line {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--accent);
+    border-radius: 8px;
+    padding: 0.5rem 0.7rem;
+    margin-bottom: 0.6rem;
+}
+.pg-ci-line i { color: var(--green); margin-right: 0.25rem; }
+.pg-ci-line strong { color: var(--text); font-family: 'JetBrains Mono', monospace; }
+
+.health-badge.cors { background: rgba(251, 191, 36, 0.12); color: var(--yellow); border: 1px solid rgba(251, 191, 36, 0.3); }

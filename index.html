@@ -3,82 +3,146 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Diretório de APIs públicas gratuitas com teste ao vivo: descubra se a API responde agora, com latência real, e leve o snippet pronto em cURL, JavaScript ou Python.">
+    <meta name="theme-color" content="#0b0e14">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
-    <title>Free API Directory | 1400+ APIs</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔌</text></svg>">
+    <title>API Directory — APIs públicas testadas ao vivo</title>
 </head>
 <body>
+
 <header>
     <div class="header-top">
-        <h1><i class="fas fa-code-branch"></i> API <span>Directory</span></h1>
+        <div class="brand">
+            <h1><i class="fas fa-plug"></i> API <span>Directory</span></h1>
+            <p class="tagline">APIs públicas gratuitas — com resposta real, não só uma lista</p>
+        </div>
         <div class="lang-switch">
             <button class="lang-btn active" data-lang="pt"><i class="fas fa-flag"></i> PT</button>
             <button class="lang-btn" data-lang="en"><i class="fas fa-flag-usa"></i> EN</button>
         </div>
-        <div class="header-controls">
-            <div class="search-wrapper">
-                <i class="fas fa-search search-icon"></i>
-                <input type="text" id="search" placeholder="Buscar APIs...">
-            </div>
-            <select id="sort-select">
-                <option value="category"><i class="fas fa-folder"></i> Ordenar: Categoria</option>
-                <option value="name"><i class="fas fa-sort-alpha-down"></i> Ordenar: Nome A-Z</option>
-                <option value="name-desc"><i class="fas fa-sort-alpha-up"></i> Ordenar: Nome Z-A</option>
-                <option value="favorites"><i class="fas fa-star"></i> Favoritos primeiro</option>
-            </select>
+    </div>
+
+    <div class="header-controls">
+        <div class="search-wrapper">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" id="search" placeholder="Buscar APIs..." autocomplete="off">
+            <kbd class="search-kbd">/</kbd>
         </div>
+        <select id="sort-select">
+            <option value="category">Ordenar: Categoria</option>
+            <option value="name">Ordenar: Nome A-Z</option>
+            <option value="name-desc">Ordenar: Nome Z-A</option>
+            <option value="favorites">Favoritos primeiro</option>
+            <option value="latency">Ordenar: Mais rápida</option>
+            <option value="health">Ordenar: Respondendo</option>
+        </select>
+        <button class="ghost-btn" id="only-noauth-btn" title="Só APIs sem chave de autenticação">
+            <i class="fas fa-lock-open"></i> <span id="only-noauth-label">Sem auth</span>
+        </button>
+        <button class="ghost-btn" id="refresh-btn" title="Recarregar do GitHub">
+            <i class="fas fa-sync-alt"></i> <span id="refresh-label">Atualizar</span>
+        </button>
+        <button class="ghost-btn" id="export-csv-btn" title="Baixar a lista filtrada em CSV">
+            <i class="fas fa-download"></i> <span id="export-label">CSV</span>
+        </button>
     </div>
 </header>
 
 <div class="stats-bar">
     <div class="stats-content">
-        <div class="stat-item"><i class="fas fa-database"></i> <strong id="total-apis">-</strong> <span id="stat-apis">APIs encontradas</span></div>
+        <div class="stat-item"><i class="fas fa-database"></i> <strong id="total-apis">-</strong> <span id="stat-apis">APIs</span></div>
         <div class="stat-item"><i class="fas fa-tags"></i> <strong id="total-categories">-</strong> <span id="stat-categories">categorias</span></div>
-        <div class="stat-item"><i class="fas fa-lock-open"></i> <strong id="no-auth-count">-</strong> <span id="stat-noauth">sem autenticação</span></div>
+        <div class="stat-item"><i class="fas fa-lock-open"></i> <strong id="no-auth-count">-</strong> <span id="stat-noauth">sem auth</span></div>
         <div class="stat-item"><i class="fas fa-heart"></i> <strong id="favorites-count">0</strong> <span id="stat-favorites">favoritas</span></div>
-        <span id="last-fetch" class="stat-item"><i class="far fa-calendar-alt"></i> Última atualização: -</span>
-        <button class="refresh-btn" id="refresh-btn"><i class="fas fa-sync-alt"></i> Atualizar</button>
-        <button class="export-btn" id="export-csv-btn"><i class="fas fa-download"></i> Exportar CSV</button>
+        <div class="stat-item" id="health-stat" hidden><i class="fas fa-heart-pulse"></i> <strong id="health-count">0</strong> <span id="stat-health">testadas</span></div>
+        <span id="last-fetch" class="stat-item"><i class="far fa-calendar-alt"></i> <span id="last-fetch-value">-</span></span>
+        <span id="health-checked-at" class="stat-item"></span>
     </div>
 </div>
 
 <div class="categories-wrapper">
-
-    <button class="scroll-btn left hidden" id="scroll-left">
-        <i class="fas fa-chevron-left"></i>
-    </button>
-
-    <div class="categories-bar">
-        <div class="categories-content" id="categories-bar">
-            <div class="cat-chip active" data-category="all">
-                <i class="fas fa-layer-group"></i> Todas
-                <span class="cat-count" id="count-all"></span>
-            </div>
-        </div>
-    </div>
-
-    <button class="scroll-btn right hidden" id="scroll-right">
-        <i class="fas fa-chevron-right"></i>
-    </button>
-
+    <button class="scroll-btn left hidden" id="scroll-left" aria-label="Categorias anteriores"><i class="fas fa-chevron-left"></i></button>
+    <div class="categories-bar"><div class="categories-content" id="categories-bar"></div></div>
+    <button class="scroll-btn right hidden" id="scroll-right" aria-label="Próximas categorias"><i class="fas fa-chevron-right"></i></button>
 </div>
 
 <main>
-    <div class="api-grid" id="api-grid">
-        <div class="loading">
-            <div class="spinner"></div>
-            <p id="loading-text"><i class="fas fa-spinner fa-spin"></i> Carregando APIs...</p>
+    <div class="probe-bar" id="probe-bar" hidden>
+        <div class="probe-info">
+            <i class="fas fa-satellite-dish"></i>
+            <span id="probe-label">Testando as APIs da página…</span>
         </div>
+        <div class="probe-progress"><div class="probe-progress-inner" id="probe-progress-inner"></div></div>
+        <button class="ghost-btn small" id="probe-cancel-btn"><i class="fas fa-times"></i> <span id="probe-cancel-label">Parar</span></button>
+    </div>
+
+    <div class="api-grid" id="api-grid">
+        <div class="loading"><div class="spinner"></div><p id="loading-text"><i class="fas fa-spinner fa-spin"></i> Carregando APIs…</p></div>
     </div>
     <div class="pagination" id="pagination"></div>
 </main>
 
-<div class="last-updated" id="last-updated">
-    <i class="fab fa-github"></i> Dados obtidos de <a href="https://github.com/public-apis/public-apis" target="_blank">public-apis/public-apis</a> no GitHub
+<!-- ============ MODAL: playground ============ -->
+<div class="modal-overlay" id="playground-overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pg-title">
+        <div class="modal-head">
+            <h2 id="pg-title"><i class="fas fa-terminal"></i> <span id="pg-name">API</span></h2>
+            <button class="modal-close" id="pg-close" aria-label="Fechar"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="modal-body">
+            <p class="pg-desc" id="pg-desc"></p>
+
+            <div class="pg-row">
+                <label class="pg-field">
+                    <span id="pg-label-endpoint">Endpoint</span>
+                    <input type="text" id="pg-endpoint" spellcheck="false" placeholder="https://api.exemplo.com/v1/recurso">
+                </label>
+            </div>
+
+            <div class="pg-actions">
+                <button class="primary-btn" id="pg-run-btn"><i class="fas fa-play"></i> <span id="pg-run-label">Testar agora</span></button>
+                <a class="ghost-btn" id="pg-open-btn" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> <span id="pg-open-label">Abrir docs</span></a>
+            </div>
+
+            <div class="pg-result" id="pg-result" hidden>
+                <div class="pg-metrics">
+                    <div class="pg-metric"><span id="pg-metric-status-label">Status</span><strong id="pg-status">-</strong></div>
+                    <div class="pg-metric"><span id="pg-metric-time-label">Latência</span><strong id="pg-time">-</strong></div>
+                    <div class="pg-metric"><span id="pg-metric-size-label">Tamanho</span><strong id="pg-size">-</strong></div>
+                    <div class="pg-metric"><span id="pg-metric-cors-label">CORS</span><strong id="pg-cors">-</strong></div>
+                </div>
+                <pre class="pg-body" id="pg-body"></pre>
+                <p class="pg-ci-line" id="pg-ci-line" hidden></p>
+                <button class="ghost-btn small" id="pg-copy-btn"><i class="fas fa-copy"></i> <span id="pg-copy-label">Copiar resposta</span></button>
+            </div>
+
+            <div class="pg-snippets" id="pg-snippets">
+                <h3><i class="fas fa-code"></i> <span id="pg-snippet-label">Leve pronto</span></h3>
+                <div class="snippet-tabs" role="tablist">
+                    <button class="snippet-tab active" data-lang-tab="curl">cURL</button>
+                    <button class="snippet-tab" data-lang-tab="javascript">JavaScript</button>
+                    <button class="snippet-tab" data-lang-tab="python">Python</button>
+                </div>
+                <pre class="snippet-body" id="snippet-body"></pre>
+                <button class="ghost-btn small" id="snippet-copy-btn"><i class="fas fa-copy"></i> <span id="snippet-copy-label">Copiar snippet</span></button>
+            </div>
+        </div>
+    </div>
 </div>
+
+<div class="last-updated" id="last-updated">
+    <i class="fab fa-github"></i>
+    Dados de <a href="https://github.com/public-apis/public-apis" target="_blank" rel="noopener">public-apis/public-apis</a>
+    · <span id="data-age"></span>
+</div>
+
+<div class="toast" id="toast" hidden></div>
 
 <script src="script.js"></script>
 </body>

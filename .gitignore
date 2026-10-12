@@ -11,9 +11,12 @@ config.json
 # Cache e dados locais
 *.db
 *.sqlite
-data/
 logs/
 .cache/
+
+# data/ NAO e ignorado de proposito: apis.json e health.json sao o que o site
+# serve no Pages. O build os regenera e o CI os commita. Ignorar data/ aqui
+# publicaria um site que carrega 404 no primeiro fetch.
 
 # Python
 __pycache__/

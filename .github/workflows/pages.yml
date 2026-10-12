@@ -1,0 +1,84 @@
+name: Site e dataset
+
+# Dois gatilhos, um workflow:
+#  - push em main  -> constroi e publica o GitHub Pages
+#  - agenda diária -> rebaixa o README do public-apis, traduz e commita o dataset
+#
+# O build do dataset roda aqui em vez de no navegador do visitante: o site antigo
+# parseava 300 KB de markdown e fazia 2000+ chamadas ao tradutor a cada visita.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**/*.md']
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages-dataset
+  cancel-in-progress: false
+
+jobs:
+  dataset:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Rebaixa, parseia e traduz o catálogo
+        run: python tools/build_dataset.py
+
+      # Só faz sentido depois do catálogo: a sondagem percorre data/apis.json.
+      # Sem CORS no meio — o browser não mediria o host, mediria a própria
+      # política de CORS do servidor. 2085 URLs com 16 workers levam ~3 min.
+      - name: Sonda as APIs
+        run: python tools/probe_apis.py
+
+      - name: Commita se mudou
+        id: commit
+        run: |
+          if git diff --quiet -- data/apis.json data/health.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "catalogo e health inalterados"
+          else
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/apis.json data/health.json
+            git commit -m "chore: atualiza o catalogo e a sondagem ($(python -c "import json;d=json.load(open('data/health.json'));a=json.load(open('data/apis.json'));print(a['generated_at'][:10], a['count'], 'APIs |', d['up'], '/', d['count'], 'no ar')"))"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  pages:
+    needs: dataset
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+        id: pages
+
+      # Só o que o browser precisa. Subir a raiz inteira publicaria .git,
+      # tools/ e o dataset cru junto com o site.
+      - name: Monta o site
+        run: |
+          mkdir -p _site/data
+          cp index.html style.css script.js _site/
+          cp data/apis.json data/health.json _site/data/
+          ls -la _site _site/data
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+
+      - name: Publica
+        id: deploy
+        uses: actions/deploy-pages@v4

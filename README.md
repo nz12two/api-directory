@@ -1,44 +1,83 @@
 # API Directory
 
-Um diretório de APIs públicas gratuitas que se atualiza sozinho. Busca dados de [`public-apis/public-apis`](https://github.com/public-apis/public-apis) (mantido pela comunidade) e exibe em uma interface limpa com busca, filtros e favoritos.
+Diretório de APIs públicas gratuitas que **diz se elas respondem**. Um índice
+mostra o que existe; este mostra o que está no ar, com a latência medida.
 
-## ✨ Features
+**No ar:** https://nz12two.github.io/api-directory/
 
-- 🔄 **Auto-atualização** — busca dados novos a cada 5 minutos
-- 🌐 **Bilíngue** — detecta o idioma do navegador (PT/EN) e traduz descrições
-- 🔍 **Busca em tempo real** — filtra por nome, descrição ou categoria
-- 🗂️ **Filtro por categoria** — barra de categorias com contagem
-- ⭐ **Favoritos** — salva no `localStorage` do navegador
-- 📊 **Estatísticas** — total de APIs, categorias, sem autenticação
-- 📥 **Exportar CSV** — baixa a lista filtrada
-- 📄 **Fallback** — se a API falhar, busca direto do README do GitHub
-- 💾 **Cache local** — carregamento instantâneo em visitas seguintes
+## O que ele faz além de listar
 
-## 🚀 Deploy no GitHub Pages
+Um diretório comum tem nome, descrição e link. Isso aqui tem:
 
-1. Crie um repositório no GitHub
-2. Faça push dos arquivos deste diretório
-3. Vá em **Settings > Pages**
-4. Selecione a branch `main` e salve
-5. O site estará disponível em `https://seu-usuario.github.io/nome-do-repo/`
+- **Latência real por API** — quantos ms o host levou, medido de fora
+- **Status de vida** — no ar, fora, ou erro de servidor
+- **Ordenar por velocidade** — as mais rápidas primeiro
+- **Teste no navegador** — clique no ▶ e veja se a API abre de frente ou se o
+  CORS barra
+- **Snippet pronto** — cURL, JavaScript ou Python, com o endpoint preenchido
+- **Filtro "sem auth"** — o que dá para usar sem cadastro
+- **CSV** do que está filtrado, com a latência junto
 
-## 🛠️ Como funciona
+## Por que a latência não é medida no navegador
 
-- Busca dados de [`public-apis/public-apis`](https://github.com/public-apis/public-apis) (mantido pela comunidade)
-- Atualiza automaticamente a cada 5 minutos
-- Cache local para carregamento instantâneo
-- Filtros por categoria, busca por texto e ordenação
+Porque o navegador mentiria. Um `fetch` só entrega a resposta se o servidor
+mandar `Access-Control-Allow-Origin`; sem isso, o browser bloqueia o corpo e
+reporta "failed" — sem distinguir *servidor fora do ar* de *CORS bloqueando*.
 
-## 📁 Estrutura
+São duas perguntas diferentes, e o site responde as duas separadamente:
+
+| Onde mede | Pergunta que responde | Limitação |
+|---|---|---|
+| `tools/probe_apis.py` (CI) | O host responde? Em quantos ms? | Mede o host, não o endpoint |
+| Botão ▶ (navegador) | Dá para consumir no front? | Diz nada sobre o host |
+
+Quando o ▶ falha mas a sondagem diz HTTP 200, as duas informações aparecem lado
+a lado — e as duas estão certas.
+
+## Arquitetura
 
 ```
-api-directory/
-├── index.html   # Estrutura da página
-├── style.css    # Estilos (tema escuro)
-├── script.js    # Lógica (fetch, busca, filtros, favoritos)
-└── README.md    # Este arquivo
+tools/build_dataset.py   → data/apis.json    (catálogo + tradução PT, 1x/dia no CI)
+tools/probe_apis.py      → data/health.json  (sonda real, 16 workers, ~3 min)
+index.html / style.css / script.js           (vanilla, sem build step)
 ```
 
-## 📄 Licença
+O site carrega **JSON estático**. Antes ele parseava 300 KB de markdown e
+traduzia 2.000+ descrições contra o endpoint do Google Translate **dentro do
+navegador de cada visitante** — 2.000 requisições a cada visita. Agora isso
+roda uma vez por dia num runner, e a página abre com um `fetch`.
 
-Feito para fins educacionais. Os dados das APIs pertencem aos seus respectivos criadores.
+## Rodar local
+
+Precisa de HTTP, não `file://` — o `fetch` de um arquivo local é bloqueado.
+
+```bash
+python -m http.server 8912
+# http://127.0.0.1:8912
+```
+
+## Atualizar os dados
+
+```bash
+python tools/build_dataset.py    # catálogo + tradução (SKIP_TRANSLATE=1 pula a tradução)
+python tools/probe_apis.py       # sonda tudo (ou `probe_apis.py 100` para uma amostra)
+```
+
+## Como a sondagem decide que um host está vivo
+
+`HEAD` primeiro, porque é o método mais barato. Se o host responde 405 ou 403
+nele, ele está de pé — o servidor respondeu, só negou. `GET` só quando o
+`HEAD` deu timeout ou erro de rede, para não gastar banda à toa.
+
+São considerados vivos: 2xx, 3xx, 401, 403, 405, 406, 410, 418, 429. Um 401 é
+um host de pé exigindo chave, e isso é informação útil.
+
+## Fonte dos dados
+
+[`public-apis/public-apis`](https://github.com/public-apis/public-apis), o
+catálogo comunitário mantido no GitHub. A API dele (`api.publicapis.org`) está
+fora do ar — por isso o build lê o README.
+
+## Licença
+
+MIT.
