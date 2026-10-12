@@ -5,54 +5,102 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Diretório de APIs públicas gratuitas com teste ao vivo: descubra se a API responde agora, com latência real, e leve o snippet pronto em cURL, JavaScript ou Python.">
     <meta name="theme-color" content="#0b0e14">
+<!-- Canonical fixo: o site nao tem rotas, entao toda URL com ?f= ou tracking
+     e a mesma pagina. Sem isso o search engine indexa variantes. -->
+<link rel="canonical" href="https://nz12two.github.io/api-directory/">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔌</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'> <defs> <linearGradient id='g' x1='0' y1='0' x2='1' y2='1'> <stop offset='0' stop-color='#8b5cf6'/> <stop offset='1' stop-color='#6366f1'/> </linearGradient> </defs> <rect width='64' height='64' rx='14' fill='url(#g)'/> <path d='M17 22 L10 32 L17 42' fill='none' stroke='#fff' stroke-width='4.5' stroke-linecap='round' stroke-linejoin='round'/> <path d='M47 22 L54 32 L47 42' fill='none' stroke='#fff' stroke-width='4.5' stroke-linecap='round' stroke-linejoin='round'/> <path d='M37 17 L27 47' fill='none' stroke='#fff' stroke-width='4.5' stroke-linecap='round'/></svg>">
     <title>API Directory — APIs públicas testadas ao vivo</title>
 </head>
 <body>
 
-<header>
-    <div class="header-top">
-        <div class="brand">
-            <h1><i class="fas fa-plug"></i> API <span>Directory</span></h1>
-            <p class="tagline">APIs públicas gratuitas — com resposta real, não só uma lista</p>
-        </div>
-        <div class="lang-switch">
-            <button class="lang-btn active" data-lang="pt"><i class="fas fa-flag"></i> PT</button>
-            <button class="lang-btn" data-lang="en"><i class="fas fa-flag-usa"></i> EN</button>
-        </div>
-    </div>
+<!-- Navegacao em um bloco so. Antes eram 5 barras empilhadas (header 133px +
+     quickbar 54px, ambas sticky top:0 e portanto sobrepostas no scroll) e o
+     primeiro card so aparecia em y=310 — em notebook, meia tela. Agora o
+     header gruda inteiro e encolhe quando o usuario desce. -->
+<header id="topbar">
+    <div class="header-inner">
 
-    <div class="header-controls">
-        <div class="search-wrapper">
-            <i class="fas fa-search search-icon"></i>
-            <input type="text" id="search" placeholder="Buscar APIs..." autocomplete="off">
-            <kbd class="search-kbd">/</kbd>
+        <div class="nav-row">
+            <a class="brand" href="#top">
+                <span class="brand-mark" aria-hidden="true"><i class="fas fa-code"></i></span>
+                <span class="brand-text">
+                    <h1 class="brand-name">API Directory</h1>
+                    <span class="brand-sub" id="tagline">APIs públicas testadas ao vivo</span>
+                </span>
+            </a>
+
+            <div class="search-wrapper">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="search" placeholder="Buscar APIs..." autocomplete="off"
+                       aria-label="Buscar APIs por nome, descrição ou categoria">
+                <kbd class="search-kbd">/</kbd>
+                <button class="search-clear" id="search-clear" hidden aria-label="Limpar busca"><i class="fas fa-xmark"></i></button>
+            </div>
+
+            <div class="nav-actions">
+                <select id="sort-select" aria-label="Ordenar APIs">
+                    <option value="category">Ordenar: Categoria</option>
+                    <option value="name">Ordenar: Nome A-Z</option>
+                    <option value="name-desc">Ordenar: Nome Z-A</option>
+                    <option value="latency">Ordenar: Mais rápida</option>
+                    <option value="health">Ordenar: Respondendo</option>
+                    <option value="favorites">Favoritos primeiro</option>
+                </select>
+                <button class="icon-btn" id="refresh-btn" title="Recarregar dados" aria-label="Recarregar dados">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <button class="icon-btn" id="export-csv-btn" title="Baixar a lista filtrada em CSV" aria-label="Exportar CSV">
+                    <i class="fas fa-download"></i>
+                </button>
+                <div class="lang-switch" role="group" aria-label="Idioma">
+                    <button class="lang-btn active" data-lang="pt">PT</button>
+                    <button class="lang-btn" data-lang="en">EN</button>
+                </div>
+            </div>
         </div>
-        <select id="sort-select">
-            <option value="category">Ordenar: Categoria</option>
-            <option value="name">Ordenar: Nome A-Z</option>
-            <option value="name-desc">Ordenar: Nome Z-A</option>
-            <option value="favorites">Favoritos primeiro</option>
-            <option value="latency">Ordenar: Mais rápida</option>
-            <option value="health">Ordenar: Respondendo</option>
-        </select>
-        <button class="ghost-btn" id="only-noauth-btn" title="Só APIs sem chave de autenticação">
-            <i class="fas fa-lock-open"></i> <span id="only-noauth-label">Sem auth</span>
-        </button>
-        <button class="ghost-btn" id="refresh-btn" title="Recarregar do GitHub">
-            <i class="fas fa-sync-alt"></i> <span id="refresh-label">Atualizar</span>
-        </button>
-        <button class="ghost-btn" id="export-csv-btn" title="Baixar a lista filtrada em CSV">
-            <i class="fas fa-download"></i> <span id="export-label">CSV</span>
-        </button>
+
+        <!-- Atalhos que respondem pergunta, não refinam lista.
+             "Usável no front" = sem chave E com CORS: o subconjunto que dá
+             para chamar do navegador sem cadastro e sem proxy. -->
+        <div class="chip-row">
+            <div class="quick-chips" id="quick-chips" role="group">
+                <button class="quick-chip" data-quick="usable" title="Sem chave e com CORS liberado">
+                    <i class="fas fa-bolt"></i> <span id="qc-usable">Usável no front</span> <em data-count="usable">0</em>
+                </button>
+                <button class="quick-chip" data-quick="noauth" title="Sem chave de autenticação">
+                    <i class="fas fa-lock-open"></i> <span id="qc-noauth">Sem auth</span> <em data-count="noauth">0</em>
+                </button>
+                <button class="quick-chip" data-quick="cors" title="Liberadas para o navegador ler">
+                    <i class="fas fa-globe"></i> <span id="qc-cors">Com CORS</span> <em data-count="cors">0</em>
+                </button>
+                <button class="quick-chip" data-quick="fast" title="Responde em menos de 500 ms">
+                    <i class="fas fa-gauge-high"></i> <span id="qc-fast">Sub-500ms</span> <em data-count="fast">0</em>
+                </button>
+                <button class="quick-chip" data-quick="up" title="O host respondeu na última sondagem">
+                    <i class="fas fa-heart-pulse"></i> <span id="qc-up">No ar</span> <em data-count="up">0</em>
+                </button>
+                <button class="quick-chip" data-quick="dead" title="O host não respondeu">
+                    <i class="fas fa-plug-circle-xmark"></i> <span id="qc-dead">Fora do ar</span> <em data-count="dead">0</em>
+                </button>
+            </div>
+            <button class="ghost-btn small" id="clear-filters-btn" hidden><i class="fas fa-xmark"></i> <span id="clear-label">Limpar</span></button>
+        </div>
+
+        <!-- Categorias viram tabs: o que era scroll horizontal com botoes
+             escondidos agora mostra onde voce esta e aceita scroll do mouse. -->
+        <nav class="cat-tabs" aria-label="Categorias">
+            <div class="cat-rail" id="categories-bar" role="tablist"></div>
+            <span class="cat-ink" id="cat-ink" aria-hidden="true"></span>
+        </nav>
     </div>
 </header>
 
+<!-- Onde o visitante esta no catalogo, sem custar uma barra inteira. -->
 <div class="stats-bar">
     <div class="stats-content">
         <div class="stat-item"><i class="fas fa-database"></i> <strong id="total-apis">-</strong> <span id="stat-apis">APIs</span></div>
@@ -65,11 +113,7 @@
     </div>
 </div>
 
-<div class="categories-wrapper">
-    <button class="scroll-btn left hidden" id="scroll-left" aria-label="Categorias anteriores"><i class="fas fa-chevron-left"></i></button>
-    <div class="categories-bar"><div class="categories-content" id="categories-bar"></div></div>
-    <button class="scroll-btn right hidden" id="scroll-right" aria-label="Próximas categorias"><i class="fas fa-chevron-right"></i></button>
-</div>
+<button class="to-top" id="to-top" hidden aria-label="Voltar ao topo"><i class="fas fa-arrow-up"></i></button>
 
 <main>
     <div class="probe-bar" id="probe-bar" hidden>
@@ -140,6 +184,29 @@
     <i class="fab fa-github"></i>
     Dados de <a href="https://github.com/public-apis/public-apis" target="_blank" rel="noopener">public-apis/public-apis</a>
     · <span id="data-age"></span>
+</div>
+
+<!-- Comparador: a pergunta real de quem escolhe API é "qual das duas eu uso".
+     Responder exige as duas na mesma tela, com os mesmos campos. -->
+<div class="tray" id="tray" hidden>
+    <div class="tray-inner">
+        <span class="tray-label"><i class="fas fa-scale-balanced"></i> <span id="tray-label">Comparar</span></span>
+        <div class="tray-items" id="tray-items"></div>
+        <div class="tray-actions">
+            <button class="primary-btn small" id="tray-compare-btn"><i class="fas fa-table-columns"></i> <span id="tray-compare-label">Comparar</span></button>
+            <button class="ghost-btn small" id="tray-clear-btn"><i class="fas fa-trash"></i> <span id="tray-clear-label">Limpar</span></button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="compare-overlay" hidden>
+    <div class="modal wide" role="dialog" aria-modal="true">
+        <div class="modal-head">
+            <h2><i class="fas fa-table-columns"></i> <span id="compare-title">Comparar</span></h2>
+            <button class="modal-close" id="compare-close" aria-label="Fechar"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" id="compare-body"></div>
+    </div>
 </div>
 
 <div class="toast" id="toast" hidden></div>

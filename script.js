@@ -11,7 +11,7 @@ const HEALTH_URL = 'data/health.json';
 
 const i18n = {
     pt: {
-        tagline: 'APIs públicas gratuitas — com resposta real, não só uma lista',
+        tagline: 'APIs públicas testadas ao vivo',
         search: 'Buscar APIs...',
         sort_category: 'Ordenar: Categoria', sort_name: 'Ordenar: Nome A-Z',
         sort_name_desc: 'Ordenar: Nome Z-A', sort_favorites: 'Favoritos primeiro',
@@ -36,14 +36,36 @@ const i18n = {
         docs_note: 'O teste mede se o host responde e se o navegador consegue ler a resposta. Endpoint de verdade está na documentação.',
         copy_fail: 'Não foi possível ler a resposta deste host (CORS). Abrir em nova aba?',
         open_tab: 'Abrir em nova aba', dataset_age: 'Dataset de',
+        pick: 'Marcar para comparar',
+        pick_max: 'Máximo de 3 para comparar',
+        tray: 'Comparar',
+        tray_clear: 'Limpar',
+        compare: 'Comparar',
+        cmp_desc: 'Descrição',
+        cmp_status: 'Sondagem',
+        cmp_latency: 'Latência',
+        cmp_auth: 'Auth',
+        cmp_cors: 'CORS',
+        cmp_https: 'HTTPS',
+        cmp_cat: 'Categoria',
+        cmp_snippet: 'Usar',
+        open_snippet: 'Abrir playground',
+        quickbar: 'Atalhos',
+        clear: 'Limpar',
+        qc_usable: 'Usável no front', qc_noauth: 'Sem auth', qc_cors: 'Com CORS',
+        qc_fast: 'Sub-500ms', qc_up: 'No ar', qc_dead: 'Fora do ar',
         health_title: 'Sondagem de fora, sem CORS no meio',
+        external_probe: 'Sondagem externa', in: 'em',
+        not_readable: 'não lido', cors_allowed: 'liberado', cors_blocked: 'bloqueado',
+        host_answers: 'o host responde', host_silent: 'o host não respondeu',
+        no_response: 'sem resposta',
         browser_ok: 'Abre direto no navegador',
         browser_no: 'CORS bloqueia a leitura pelo navegador',
         test_browser: 'Testar se abre no navegador',
         checked_at: 'Sondado em',
     },
     en: {
-        tagline: 'Free public APIs — with a real answer, not just a list',
+        tagline: 'Live-tested public APIs',
         search: 'Search APIs...',
         sort_category: 'Sort: Category', sort_name: 'Sort: Name A-Z',
         sort_name_desc: 'Sort: Name Z-A', sort_favorites: 'Favorites first',
@@ -68,7 +90,29 @@ const i18n = {
         docs_note: 'The test measures whether the host answers and whether the browser can read it. The real endpoint is in the docs.',
         copy_fail: "Could not read this host's response (CORS). Open in a new tab?",
         open_tab: 'Open in new tab', dataset_age: 'Dataset from',
+        pick: 'Mark to compare',
+        pick_max: 'At most 3 to compare',
+        tray: 'Compare',
+        tray_clear: 'Clear',
+        compare: 'Compare',
+        cmp_desc: 'Description',
+        cmp_status: 'Probe',
+        cmp_latency: 'Latency',
+        cmp_auth: 'Auth',
+        cmp_cors: 'CORS',
+        cmp_https: 'HTTPS',
+        cmp_cat: 'Category',
+        cmp_snippet: 'Use',
+        open_snippet: 'Open playground',
+        quickbar: 'Shortcuts',
+        clear: 'Clear',
+        qc_usable: 'Usable in front', qc_noauth: 'No auth', qc_cors: 'With CORS',
+        qc_fast: 'Under 500ms', qc_up: 'Up', qc_dead: 'Down',
         health_title: 'Probed from outside, no CORS in the way',
+        external_probe: 'External probe', in: 'in',
+        not_readable: 'not readable', cors_allowed: 'allowed', cors_blocked: 'blocked',
+        host_answers: 'the host answers', host_silent: 'the host did not answer',
+        no_response: 'no response',
         browser_ok: 'Opens directly in the browser',
         browser_no: 'CORS blocks the browser from reading it',
         test_browser: 'Test if it opens in the browser',
@@ -86,10 +130,45 @@ let category = 'all';
 let favorites = new Set();
 let page = 1;
 let perPage = 24;
-let noAuthOnly = false;
+let filters = new Set();       // atalhos ligados: usable|noauth|cors|fast|up|dead
+let picked = new Set();        // APIs marcadas para comparar
 let searchTimer = null;
 let currentApi = null;
+let lastProbe = null;         // ultimo resultado do playground, para re-render
 let snippetLang = 'curl';
+
+/* Cada atalho responde uma pergunta diferente, e é por isso que não são só
+ * etiquetas: "sem auth" é o que não pede cadastro; "com CORS" é o que o
+ * navegador consegue ler; "usável no front" é a interseção dos dois, que é
+ * o subconjunto que dá para integrar hoje sem proxy. */
+function matchFilter(api, f) {
+    const h = health.get(api.url);
+    switch (f) {
+        case 'usable': return api.auth === 'no' && api.cors === 'yes';
+        case 'noauth': return api.auth === 'no';
+        case 'cors': return api.cors === 'yes';
+        case 'fast': return h?.state === 'up' && h.ms < 500;
+        case 'up': return h?.state === 'up';
+        case 'dead': return !!h && h.state !== 'up';
+        default: return true;
+    }
+}
+
+function countFilter(f) {
+    let n = 0;
+    for (const a of apis) if (matchFilter(a, f)) n++;
+    return n;
+}
+
+// Escala a barra pela ordem de grandeza, não pelo pior caso: entre 40 ms e
+// 3.000 ms a escala linear deixa quase tudo colado no zero.
+function latencyBar(ms) {
+    const pct = Math.max(4, Math.min(100, 100 - (Math.log(Math.max(ms, 1)) - Math.log(40)) / (Math.log(3000) - Math.log(40)) * 100));
+    const tone = ms < 300 ? 'fast' : ms < 900 ? 'mid' : 'slow';
+    return `<div class="lat-bar" title="${ms} ms">
+        <div class="lat-fill ${tone}" style="width:${pct.toFixed(1)}%"></div>
+    </div>`;
+}
 
 const $ = (id) => document.getElementById(id);
 const t = () => i18n[lang];
@@ -111,6 +190,10 @@ async function loadDataset() {
 
     loadFavorites();
     render();
+    // Link profundo (?cat=Weather) precisa trazer a tab para a vista: com 52
+    // categorias, "Weather" fica a x=2259 e o visitante veria a lista filtrada
+    // sem nenhuma pista de onde ela veio.
+    revealActiveTab();
     $('data-age').textContent = t().dataset_age + ' ' + (payload.generated_at || '').slice(0, 10);
 
     // O health vem separado e é opcional: sem ele o site ainda lista, só perde
@@ -192,7 +275,7 @@ function visible() {
         a.description.toLowerCase().includes(q) ||
         (a.description_pt || '').toLowerCase().includes(q) ||
         a.category.toLowerCase().includes(q));
-    if (noAuthOnly) list = list.filter(a => a.auth === 'no');
+    for (const f of filters) list = list.filter(a => matchFilter(a, f));
 
     const sort = $('sort-select').value;
     const byName = (x, y) => x.name.localeCompare(y.name);
@@ -216,6 +299,51 @@ function render() {
     renderGrid();
 }
 
+/* ============ estado na URL: o botao voltar precisa funcionar ============ */
+// Antes o historico do navegador era inerte nesta pagina: filtrar, buscar e
+// escolher categoria nao deixavam rastro, e nao havia como compartilhar um
+// recorte ("clima + CORS + sub-500ms") sem colar o filtro no texto.
+const URL_PER_PAGE = [12, 24, 48];
+
+function readUrl() {
+    const p = new URLSearchParams(location.search);
+    $('search').value = p.get('q') || '';
+    $('search-clear').hidden = !$('search').value;
+    category = p.get('cat') || 'all';
+    // filter(Boolean) antes do segundo filtro: sem ele, "f" ausente vira '' e
+    // ''.split(',') = [''] — o Set ficava com um filtro vazio que nao casava
+    // com nenhuma API, mas contava como 1 filtro ligado (botao "Limpar" aparecia
+    // sem nada filtrado) e voltava na URL como "f=".
+    filters = new Set((p.get('f') || '').split(',').filter(k => k && k !== 'category'));
+    const s = p.get('sort');
+    if (s) $('sort-select').value = s;
+    const n = +p.get('n');
+    if (URL_PER_PAGE.includes(n)) perPage = n;
+    page = 1;
+}
+
+// 'push' para acao discreta (nova entrada no historico), 'replace' para o que
+// muda a cada tecla — 20 entradas de historico para uma frase so e o botao
+// voltar deixa de servir para sair da busca.
+function syncUrl(mode = 'replace') {
+    const p = new URLSearchParams();
+    const q = $('search').value.trim();
+    if (q) p.set('q', q);
+    if (category !== 'all') p.set('cat', category);
+    const s = $('sort-select').value;
+    if (s && s !== 'category') p.set('sort', s);
+    if (perPage !== 24) p.set('n', perPage);
+    if (filters.size) p.set('f', [...filters].join(','));
+    history[mode + 'State'](null, '', p.toString() ? '?' + p : location.pathname);
+}
+
+window.addEventListener('popstate', () => {
+    readUrl();
+    $('items-per-page') && ($('items-per-page').value = perPage);
+    render();
+    revealActiveTab();
+});
+
 function renderStats() {
     $('total-apis').textContent = apis.length;
     $('total-categories').textContent = new Set(apis.map(a => a.category)).size;
@@ -227,19 +355,67 @@ function renderStats() {
         $('health-count').textContent = `${up}/${health.size}`;
         $('health-stat').title = t().health_title;
     }
+
+    // Contagem dos atalhos: mostra o tamanho do subconjunto antes de clicar,
+    // que é a informação que decide se o atalho vale o clique.
+    document.querySelectorAll('.quick-chip').forEach(chip => {
+        const em = chip.querySelector('em');
+        if (em) em.textContent = countFilter(chip.dataset.quick);
+        chip.classList.toggle('active', filters.has(chip.dataset.quick));
+        chip.classList.toggle('empty', em && em.textContent === '0');
+    });
+    $('clear-filters-btn').hidden = filters.size === 0 && !$('search').value;
 }
 
 function renderCategories() {
     const counts = new Map();
     apis.forEach(a => counts.set(a.category || 'Other', (counts.get(a.category || 'Other') || 0) + 1));
     const sorted = [...counts].sort((a, b) => b[1] - a[1]);
-    const html = [`<button class="cat-chip ${category === 'all' ? 'active' : ''}" data-category="all"><i class="fas fa-layer-group"></i> ${t().all}<span class="cat-count">${apis.length}</span></button>`]
+    const total = apis.length;
+    const html = [`<button class="cat-tab ${category === 'all' ? 'active' : ''}" data-category="all" role="tab" aria-selected="${category === 'all'}">${t().all}<span class="cat-count">${total}</span></button>`]
         .concat(sorted.map(([c, n]) =>
-            `<button class="cat-chip ${category === c ? 'active' : ''}" data-category="${esc(c)}"><i class="fas fa-folder"></i> ${esc(c)}<span class="cat-count">${n}</span></button>`))
+            `<button class="cat-tab ${category === c ? 'active' : ''}" data-category="${esc(c)}" role="tab" aria-selected="${category === c}">${esc(c)}<span class="cat-count">${n}</span></button>`))
         .join('');
     $('categories-bar').innerHTML = html;
-    $('categories-bar').querySelectorAll('.cat-chip').forEach(chip =>
-        chip.addEventListener('click', () => { category = chip.dataset.category; page = 1; renderCategories(); renderGrid(); setTimeout(scrollButtons, 50); }));
+    $('categories-bar').querySelectorAll('.cat-tab').forEach(tab =>
+        tab.addEventListener('click', () => {
+            category = tab.dataset.category;
+            page = 1;
+            renderCategories();
+            renderGrid();
+            syncUrl('push');
+            // revealActiveTab, e nao tab.scrollIntoView: renderCategories() acima
+            // reconstruiu o innerHTML do rail e `tab` saiu do documento — rolar
+            // um elemento desanexado nao move nada. Medido: tinta em x=6062 com
+            // o rail ainda em 1582, ou seja, a categoria clicada ficava invisivel.
+            revealActiveTab('center');
+        }));
+    moveInk();
+}
+
+// A "tinta" da tab segue a selecionada. Sem ela o usuario so descobre onde esta
+// pela posicao num scroll horizontal, que e a unica pista ruim de navegacao.
+function moveInk() {
+    const ink = $('cat-ink');
+    const rail = $('categories-bar');
+    const active = rail.querySelector('.cat-tab.active');
+    if (!ink || !rail || !active) return;
+    ink.style.width = active.offsetWidth + 'px';
+    ink.style.transform = `translateX(${active.offsetLeft}px)`;
+    ink.style.opacity = '1';
+}
+
+// 'nearest' rola so se a tab ja estiver fora da vista. Se rolamos a cada
+// render, um simples resize ou troca de filtro puxaria o rail de volta e
+// brigaria com quem scrolleou com o mouse.
+function revealActiveTab(align = 'nearest') {
+    const rail = $('categories-bar');
+    const active = rail?.querySelector('.cat-tab.active');
+    if (!active) return;
+    const visible = active.offsetLeft >= rail.scrollLeft
+        && active.offsetLeft + active.offsetWidth <= rail.scrollLeft + rail.clientWidth;
+    if (!visible) active.scrollIntoView({ behavior: 'smooth', inline: align, block: 'nearest' });
+    moveInk();
 }
 
 function renderGrid() {
@@ -278,11 +454,13 @@ function renderGrid() {
                 <h3><a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.name)} <i class="fas fa-external-link-alt fa-xs"></i></a></h3>
                 <div class="card-actions">
                     ${badge}
+                    <button class="pick-btn ${picked.has(a.url) ? 'active' : ''}" data-url="${esc(a.url)}" title="${t().pick}" aria-label="${t().pick}"><i class="fas fa-scale-balanced"></i></button>
                     <button class="test-btn" data-url="${esc(a.url)}" title="${t().test_browser}"><i class="fas fa-play"></i></button>
                     <button class="favorite-btn ${favorites.has(a.url) ? 'active' : ''}" data-url="${esc(a.url)}" aria-label="Favoritar"><i class="fas ${favorites.has(a.url) ? 'fa-star' : 'fa-star-o'}"></i></button>
                 </div>
             </div>
             <p class="card-desc">${esc((!noDataPt && lang === 'pt') ? a.description_pt : a.description)}</p>
+            ${h && h.state === 'up' ? latencyBar(h.ms) : ''}
             <div class="card-tags">
                 <span class="tag tag-category"><i class="fas fa-folder"></i> ${esc(a.category || 'Other')}</span>
                 <span class="tag ${a.auth === 'no' ? 'tag-auth-false' : 'tag-auth-true'}"><i class="fas ${a.auth === 'no' ? 'fa-lock-open' : 'fa-lock'}"></i> ${a.auth === 'no' ? t().auth_no : t().auth_yes}</span>
@@ -291,6 +469,12 @@ function renderGrid() {
             </div>
         </article>`;
     }).join('');
+
+    // Entrada escalonada: 24 cards aparecendo juntos e sem hierarquia visual
+    // nao ajuda a enxergar o primeiro. O atraso cresce até 240 ms e para.
+    [...$('api-grid').children].forEach((el, i) => {
+        el.style.animationDelay = Math.min(i * 10, 240) + 'ms';
+    });
 
     renderPagination(pages);
 }
@@ -306,7 +490,7 @@ function renderPagination(pages) {
     for (let i = from; i <= to; i++) html += `<button class="page-btn ${i === page ? 'active' : ''}" data-page="${i}">${i}</button>`;
     if (to < pages) html += `${to < pages - 1 ? '<span class="page-dots">…</span>' : ''}<button class="page-btn" data-page="${pages}">${pages}</button>`;
     html += `<button class="page-btn" ${page === pages ? 'disabled' : ''} data-nav="next">${t().next} <i class="fas fa-chevron-right"></i></button>`;
-    html += `<select class="items-per-page" id="items-per-page">${[12, 24, 48, 96].map(n => `<option value="${n}" ${perPage === n ? 'selected' : ''}>${n} ${t().per_page}</option>`).join('')}</select>`;
+    html += `<select class="items-per-page" id="items-per-page" aria-label="APIs por página">${[12, 24, 48, 96].map(n => `<option value="${n}" ${perPage === n ? 'selected' : ''}>${n} ${t().per_page}</option>`).join('')}</select>`;
     el.innerHTML = html;
 
     el.querySelectorAll('.page-btn[data-page]').forEach(b => b.addEventListener('click', () => { page = +b.dataset.page; renderGrid(); window.scrollTo({ top: 0, behavior: 'smooth' }); }));
@@ -430,14 +614,29 @@ async function runPlayground() {
     probeResults.set(url, r);
 
     $('pg-result').hidden = false;
+    lastProbe = r;
+    renderPlaygroundResult();
+
+    btn.disabled = false;
+    btn.querySelector('i').className = 'fas fa-play';
+    renderStats();
+    renderGrid();
+}
+
+// Resultado da última execução do playground. Fica em função porque applyLang
+// precisa redesenhá-lo: as métricas eram escritas em PT e continuavam em PT
+// mesmo com a página inteira em inglês, até o visitante rodar a sondagem de novo.
+function renderPlaygroundResult() {
+    const r = lastProbe;
+    if (!r) return;
     // Duas medidas de coisas diferentes, mostradas juntas. Quando o browser
-    // diz "erro" e o CI diz 200, nenhuma das duas está errada: o browser
+    // diz "não leu" e o CI diz 200, nenhuma das duas está errada: o browser
     // mede CORS, o CI mede o host. Mostrar só uma delas mente sobre a outra.
-    $('pg-status').textContent = r.readable ? (r.status || '200') : (lang === 'pt' ? 'não lido' : 'not readable');
+    $('pg-status').textContent = r.readable ? (r.status || '200') : t().not_readable;
     $('pg-status').className = r.readable ? 'good' : 'bad';
     $('pg-time').textContent = r.readable ? r.ms + ' ms' : '—';
     $('pg-size').textContent = r.bytes ? formatBytes(r.bytes) : '—';
-    $('pg-cors').textContent = r.readable ? (lang === 'pt' ? 'liberado' : 'allowed') : (lang === 'pt' ? 'bloqueado' : 'blocked');
+    $('pg-cors').textContent = r.readable ? t().cors_allowed : t().cors_blocked;
     $('pg-body').textContent = r.readable
         ? r.preview
         : (lang === 'pt'
@@ -452,28 +651,102 @@ async function runPlayground() {
             + `Access-Control-Allow-Origin. Without it the browser blocks the body\n`
             + `and never tells you whether the server answered.`);
     $('pg-body').className = 'pg-body' + (r.readable ? '' : ' error');
+    renderCiLine();
+}
 
-    // A verdade sobre o host, que o browser não consegue ver.
+// A verdade sobre o host, que o browser não consegue ver. Fica em função
+// própria porque trocar de idioma precisa redesenhá-la — senão o card fica com
+// metade em português e metade em inglês até a próxima sondagem.
+function renderCiLine() {
     const ciLine = $('pg-ci-line');
+    const ci = currentApi ? health.get(currentApi.url) : null;
     if (ci) {
         ciLine.hidden = false;
+        const head = `<i class="fas ${ci.state === 'up' ? 'fa-heart-pulse' : 'fa-plug-circle-xmark'}"></i> ${t().external_probe}: `;
         ciLine.innerHTML = ci.state === 'up'
-            ? `<i class="fas fa-heart-pulse"></i> ${lang === 'pt' ? 'Sondagem externa' : 'External probe'}: <strong>HTTP ${ci.status}</strong> em <strong>${ci.ms} ms</strong> — ${lang === 'pt' ? 'o host responde' : 'the host answers'}`
-            : `<i class="fas fa-plug-circle-xmark"></i> ${lang === 'pt' ? 'Sondagem externa' : 'External probe'}: <strong>${ci.status ? 'HTTP ' + ci.status : 'sem resposta'}</strong> — ${lang === 'pt' ? 'o host não respondeu' : 'the host did not answer'}`;
+            ? `${head}<strong>HTTP ${ci.status}</strong> ${t().in} <strong>${ci.ms} ms</strong> — ${t().host_answers}`
+            : `${head}<strong>${ci.status ? 'HTTP ' + ci.status : t().no_response}</strong> — ${t().host_silent}`;
     } else {
         ciLine.hidden = true;
     }
-
-    btn.disabled = false;
-    btn.querySelector('i').className = 'fas fa-play';
-    renderStats();
-    renderGrid();
 }
 
 function formatBytes(n) {
     if (n < 1024) return n + ' B';
     if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
     return (n / 1048576).toFixed(1) + ' MB';
+}
+
+/* ============================ comparar ============================ */
+
+const MAX_PICK = 3;   // três já é a largura de uma tabela legível
+
+function togglePick(url) {
+    const on = picked.has(url);
+    if (on) picked.delete(url);
+    else {
+        if (picked.size >= MAX_PICK) { toast(`⚠️ ${t().pick_max}`); return; }
+        picked.add(url);
+    }
+    renderTray();
+    // Só o botão muda de estado. redesenhar o grid inteiro aqui destruía os
+    // nós vizinhos no meio da sequência de cliques: marcar 3 APIs clicando
+    // uma atrás da outra só registrava a primeira.
+    document.querySelectorAll(`.pick-btn[data-url="${CSS.escape(url)}"]`).forEach(b => {
+        b.classList.toggle('active', !on);
+    });
+}
+
+function renderTray() {
+    const tray = $('tray');
+    tray.hidden = picked.size === 0;
+    if (!picked.size) return;
+    $('tray-items').innerHTML = [...picked].map(url => {
+        const a = apis.find(x => x.url === url);
+        if (!a) return '';
+        return `<span class="tray-chip"><i class="fas fa-circle" style="font-size:.4rem;color:var(--accent)"></i> ${esc(a.name)}<button data-unpick="${esc(url)}" aria-label="Remover"><i class="fas fa-xmark"></i></button></span>`;
+    }).join('');
+    $('tray-compare-btn').disabled = picked.size < 2;
+}
+
+function openCompare() {
+    const items = [...picked].map(url => apis.find(x => x.url === url)).filter(Boolean);
+    if (items.length < 2) return;
+    const rows = [
+        { label: t().cmp_desc, get: a => esc((a.description_pt && a.description_pt !== a.description && lang === 'pt') ? a.description_pt : a.description) },
+        { label: t().cmp_status, get: a => { const h = health.get(a.url); return h ? (h.state === 'up' ? `<span class="cmp-good">HTTP ${h.status}</span>` : `<span class="cmp-bad">${h.status ? 'HTTP ' + h.status : 'sem resposta'}</span>`) : '—'; }, wide: true },
+        { label: t().cmp_latency, get: a => { const h = health.get(a.url); return h?.state === 'up' ? `${h.ms} ms` : '—'; }, best: a => { const h = health.get(a.url); return h?.state === 'up' ? h.ms : Infinity; } },
+        { label: t().cmp_auth, get: a => a.auth === 'no' ? `<span class="cmp-good">${t().auth_no}</span>` : `<span class="cmp-bad">${t().auth_yes}</span>` },
+        { label: t().cmp_cors, get: a => a.cors === 'yes' ? `<span class="cmp-good">${t().cors_yes}</span>` : a.cors === 'no' ? `<span class="cmp-bad">${t().cors_no}</span>` : t().cors_unknown },
+        { label: t().cmp_https, get: a => a.https ? `<span class="cmp-good">${t().https}</span>` : `<span class="cmp-warn">${t().http}</span>` },
+        { label: t().cmp_cat, get: a => esc(a.category) },
+        { label: t().cmp_snippet, get: a => `<button class="ghost-btn small" data-cmp-open="${esc(a.url)}"><i class="fas fa-terminal"></i> ${t().open_snippet}</button>`, wide: true },
+    ];
+
+    // Marca o melhor por latência: é o dado que a comparação existe para decidir.
+    const bestLat = Math.min(...items.map(a => { const h = health.get(a.url); return h?.state === 'up' ? h.ms : Infinity; }));
+
+    $('compare-body').innerHTML =
+        `<table class="cmp-table"><thead><tr><th></th>${items.map(a => `<th><a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.name)} <i class="fas fa-external-link-alt fa-xs"></i></a></th>`).join('')}</tr></thead><tbody>` +
+        rows.map(r => `<tr><th>${r.label}</th>${items.map(a => {
+            const isBest = r.best && r.best(a) === bestLat && r.best(a) !== Infinity;
+            return `<td class="${r.wide ? 'wide' : ''}${isBest ? ' best' : ''}">${r.get(a)}</td>`;
+        }).join('')}</tr>`).join('') +
+        `</tbody></table>`;
+
+    $('compare-body').querySelectorAll('[data-cmp-open]').forEach(b => b.addEventListener('click', () => {
+        const api = apis.find(x => x.url === b.dataset.cmpOpen);
+        closeCompare();
+        if (api) openPlayground(api);
+    }));
+
+    $('compare-overlay').hidden = false;
+    document.body.classList.add('modal-open');
+}
+
+function closeCompare() {
+    $('compare-overlay').hidden = true;
+    document.body.classList.remove('modal-open');
 }
 
 /* ============================ favoritos / CSV ============================ */
@@ -513,13 +786,20 @@ function exportCsv() {
 function applyLang() {
     document.documentElement.lang = lang === 'pt' ? 'pt-BR' : 'en';
     $('search').placeholder = t().search;
-    const s = $('sort-select').options;
-    s[0].textContent = t().sort_category; s[1].textContent = t().sort_name;
-    s[2].textContent = t().sort_name_desc; s[3].textContent = t().sort_favorites;
-    s[4].textContent = t().sort_latency; s[5].textContent = t().sort_health;
-    $('only-noauth-label').textContent = t().noauth;
-    $('refresh-label').textContent = t().refresh;
-    $('export-label').textContent = t().csv;
+    $('tagline').textContent = t().tagline;
+    // Por value, não por índice: a ordem das <option> já mudou uma vez e o
+    // índice calado continuaria escrevendo o rótulo no campo errado.
+    const set = (val, txt) => { const o = $('sort-select').querySelector(`option[value="${val}"]`); if (o) o.textContent = txt; };
+    set('category', t().sort_category); set('name', t().sort_name);
+    set('name-desc', t().sort_name_desc); set('latency', t().sort_latency);
+    set('health', t().sort_health); set('favorites', t().sort_favorites);
+
+    $('qc-usable').textContent = t().qc_usable; $('qc-noauth').textContent = t().qc_noauth;
+    $('qc-cors').textContent = t().qc_cors; $('qc-fast').textContent = t().qc_fast;
+    $('qc-up').textContent = t().qc_up; $('qc-dead').textContent = t().qc_dead;
+    $('clear-label').textContent = t().clear;
+    $('tray-label').textContent = t().tray; $('tray-clear-label').textContent = t().tray_clear;
+    $('tray-compare-label').textContent = t().compare; $('compare-title').textContent = t().compare;
     $('stat-apis').textContent = t().apis; $('stat-categories').textContent = t().categories;
     $('stat-noauth').textContent = t().no_auth; $('stat-favorites').textContent = t().favorites;
     $('stat-health').textContent = t().tested;
@@ -529,8 +809,14 @@ function applyLang() {
     $('pg-metric-status-label').textContent = t().status; $('pg-metric-time-label').textContent = t().latency;
     $('pg-metric-size-label').textContent = t().size; $('pg-metric-cors-label').textContent = t().cors;
     $('probe-cancel-label').textContent = t().probe_cancel;
-    document.querySelector('.tagline').textContent = t().tagline;
     document.title = lang === 'pt' ? 'API Directory — APIs públicas testadas ao vivo' : 'API Directory — live-tested public APIs';
+    // Grid e painel precisam ser redesenhados: card, chip e playground carregam
+    // texto no idioma em que estavam abertos, e applyLang só trocava os rótulos
+    // estáticos — o resto ficava na língua anterior até um clique recarregasse.
+    renderStats();
+    renderGrid();
+    renderCiLine();
+    renderPlaygroundResult();
 }
 
 /* ============================ infra ============================ */
@@ -549,12 +835,56 @@ function esc(s) {
     return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function scrollButtons() {
-    const bar = $('categories-bar');
-    const max = bar.scrollWidth - bar.clientWidth;
-    $('scroll-left').classList.toggle('hidden', bar.scrollLeft <= 0);
-    $('scroll-right').classList.toggle('hidden', bar.scrollLeft >= max - 1);
+/* ============ scroll: header encolhe, topo aparece, tinta acompanha ========= */
+
+// O header inteiro gruda. Antes header e quickbar eram dois sticky top:0, que
+// no scroll se sobrepunham. Agora e um bloco so.
+function onScroll() {
+    const y = window.scrollY;
+    $('topbar')?.classList.toggle('condensed', y > 40);
+    const toTop = $('to-top');
+    if (toTop) toTop.hidden = y < 500;
 }
+window.addEventListener('scroll', onScroll, { passive: true });
+
+$('to-top')?.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    $('search').focus({ preventScroll: true });
+});
+
+// Limpar busca: um "x" e mais discoverable do que selecionar tudo e apagar,
+// e some sozinho quando o campo esta vazio.
+$('search-clear')?.addEventListener('click', () => {
+    $('search').value = '';
+    $('search-clear').hidden = true;
+    page = 1;
+    render();
+    syncUrl('push');
+    $('search').focus();
+});
+
+// Setas do teclado movem o cursor da tab ativa — navegacao por teclado sem
+// depender de mouse num rail horizontal de 52 itens.
+$('categories-bar').addEventListener('keydown', e => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    const tabs = [...$('categories-bar').querySelectorAll('.cat-tab')];
+    const i = tabs.findIndex(t => t.classList.contains('active'));
+    if (i < 0) return;
+    const next = tabs[i + (e.key === 'ArrowRight' ? 1 : -1)];
+    if (!next) return;
+    e.preventDefault();
+    next.click();
+    next.focus();
+});
+
+// Scroll do mouse vira scroll horizontal: sem isso o rail de 52 categorias so
+// anda com barra de rolagem embaixo, que ninguém acha.
+$('categories-bar').addEventListener('wheel', e => {
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    const bar = $('categories-bar');
+    bar.scrollLeft += e.deltaY;
+    e.preventDefault();
+}, { passive: false });
 
 function copy(text, label) {
     navigator.clipboard?.writeText(text).then(() => toast(t().copied + (label ? ' — ' + label : '')))
@@ -563,30 +893,59 @@ function copy(text, label) {
 
 /* ============================ boot ============================ */
 
-$('search').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { page = 1; renderGrid(); }, 140); });
-$('sort-select').addEventListener('change', () => { page = 1; renderGrid(); });
+$('search').addEventListener('input', () => {
+    $('search-clear').hidden = !$('search').value;
+    clearTimeout(searchTimer);
+    // 'replace', nao 'push': digitar 6 letras e uma unica volta do historico.
+    searchTimer = setTimeout(() => { page = 1; renderGrid(); syncUrl('replace'); }, 140);
+});
+$('sort-select').addEventListener('change', () => { page = 1; renderGrid(); syncUrl('push'); });
 $('refresh-btn').addEventListener('click', refreshFromGitHub);
 $('export-csv-btn').addEventListener('click', exportCsv);
-$('only-noauth-btn').addEventListener('click', () => {
-    noAuthOnly = !noAuthOnly;
-    $('only-noauth-btn').classList.toggle('active', noAuthOnly);
-    page = 1; renderGrid();
+$('quick-chips').addEventListener('click', e => {
+    const chip = e.target.closest('.quick-chip');
+    if (!chip) return;
+    const f = chip.dataset.quick;
+    filters.has(f) ? filters.delete(f) : filters.add(f);
+    page = 1;
+    render();
+    syncUrl('push');
 });
-$('scroll-left').addEventListener('click', () => $('categories-bar').scrollBy({ left: -250, behavior: 'smooth' }));
-$('scroll-right').addEventListener('click', () => $('categories-bar').scrollBy({ left: 250, behavior: 'smooth' }));
-$('categories-bar').addEventListener('scroll', scrollButtons);
-window.addEventListener('resize', scrollButtons);
+$('clear-filters-btn').addEventListener('click', () => {
+    filters.clear();
+    $('search').value = '';
+    $('search-clear').hidden = true;
+    category = 'all';
+    page = 1;
+    render();
+    syncUrl('push');
+});
+
+// A "tinta" precisa ser reposicionada quando a janela muda ou quando o rail
+// some da vista; sem isso ela fica parada no lugar antigo.
+window.addEventListener('resize', () => { moveInk(); renderStats(); });
 
 // Delegação única: os cards são reescritos a cada render.
 $('api-grid').addEventListener('click', e => {
     const fav = e.target.closest('.favorite-btn');
     if (fav) return toggleFavorite(fav.dataset.url);
+    const pick = e.target.closest('.pick-btn');
+    if (pick) return togglePick(pick.dataset.url);
     const test = e.target.closest('.test-btn');
     if (test) {
         const api = apis.find(a => a.url === test.dataset.url);
         if (api) openPlayground(api);
     }
 });
+
+$('tray-items').addEventListener('click', e => {
+    const b = e.target.closest('[data-unpick]');
+    if (b) togglePick(b.dataset.unpick);
+});
+$('tray-compare-btn').addEventListener('click', openCompare);
+$('tray-clear-btn').addEventListener('click', () => { picked.clear(); renderTray(); renderGrid(); });
+$('compare-close').addEventListener('click', closeCompare);
+$('compare-overlay').addEventListener('click', e => { if (e.target.id === 'compare-overlay') closeCompare(); });
 
 const probeInfo = $('probe-bar').querySelector('.probe-info');
 probeInfo.insertAdjacentHTML('beforeend',
@@ -614,8 +973,16 @@ document.querySelectorAll('.lang-btn').forEach(btn => btn.addEventListener('clic
 }));
 
 document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && !$('playground-overlay').hidden) return closePlayground();
-    if (e.key === '/' && document.activeElement !== $('search')) { e.preventDefault(); $('search').focus(); }
+    // O modal mais alto vence o Esc: fechar o playground deixando a comparação
+    // aberta por baixo seria sair do foco do teclado.
+    if (e.key === 'Escape') {
+        if (!$('playground-overlay').hidden) return closePlayground();
+        if (!$('compare-overlay').hidden) return closeCompare();
+        return;
+    }
+    if (e.key === '/' && document.activeElement !== $('search') && document.activeElement.tagName !== 'INPUT') {
+        e.preventDefault(); $('search').focus();
+    }
 });
 
 const savedLang = localStorage.getItem('api_directory_lang');
@@ -624,5 +991,6 @@ if (savedLang && i18n[savedLang]) {
     document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
 }
 applyLang();
+readUrl();
 $('last-fetch-value').textContent = new Date().toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US');
 loadDataset();
