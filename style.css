@@ -554,10 +554,8 @@ main {
 /* A estrela ficava apagada demais: --text-muted sobre card translucido nao
    passa em contraste. A caixa de 30x30 e o estado ativo estao no bloco do
    .pick-btn, mais abaixo, junto dos outros botoes da fileira. */
-.favorite-btn.active {
-    color: var(--favorite);
-    filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.5));
-}
+/* A regra completa do estado favoritado esta junto dos outros botoes de acao,
+   mais abaixo. Aqui sobrava so um resto que a regra nova ja cobre. */
 
 .rank-badge {
     background: linear-gradient(135deg, var(--accent), var(--accent-2));
@@ -1231,12 +1229,17 @@ body.modal-open { overflow: hidden; }
 
 .pick-btn:active { transform: translateY(0) scale(.94); }
 
-/* A estrela ficava apagada demais: --text-muted sobre card translucido nao
-   passa em contraste. Cor propria, caixa propria e brilho no estado ativo. */
+/* A estrela precisa ser visivel ANTES de favoritar. Dois defeitos se
+   somavam: `fa-star-o` e nome do FA5 e nao existe no FA6 free (medido:
+   ::before content="none", caixa 0x0 — o botao ficava literalmente vazio), e a
+   borda era transparente, entao nem vazando do que nao renderizava aparecia
+   caixa. Agora o estado vazado e `far fa-star` (contorno), com a mesma caixa
+   dos outros dois botoes. */
 .favorite-btn {
-    border-color: transparent;
-    font-size: 1rem;
-    color: #a6acc2;
+    font-size: .95rem;
+    color: #b9c0d6;
+    border-color: var(--border);
+    background: var(--surface);
 }
 
 .favorite-btn:hover {

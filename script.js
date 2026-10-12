@@ -456,7 +456,7 @@ function renderGrid() {
                     ${badge}
                     <button class="pick-btn ${picked.has(a.url) ? 'active' : ''}" data-url="${esc(a.url)}" title="${t().pick}" aria-label="${t().pick}"><i class="fas fa-scale-balanced"></i></button>
                     <button class="test-btn" data-url="${esc(a.url)}" title="${t().test_browser}"><i class="fas fa-play"></i></button>
-                    <button class="favorite-btn ${favorites.has(a.url) ? 'active' : ''}" data-url="${esc(a.url)}" aria-label="Favoritar"><i class="fas ${favorites.has(a.url) ? 'fa-star' : 'fa-star-o'}"></i></button>
+                    <button class="favorite-btn ${favorites.has(a.url) ? 'active' : ''}" data-url="${esc(a.url)}" aria-pressed="${favorites.has(a.url)}" aria-label="Favoritar" title="Favoritar"><i class="${favorites.has(a.url) ? 'fas' : 'far'} fa-star"></i></button>
                 </div>
             </div>
             <p class="card-desc">${esc((!noDataPt && lang === 'pt') ? a.description_pt : a.description)}</p>
