@@ -60,6 +60,12 @@ jobs:
   pages:
     needs: dataset
     runs-on: ubuntu-latest
+    # Permissao de job SOBRESCREVE a global. Com so `contents: write` herdada,
+    # o deploy-pages morria em "Unable to get ACTIONS_ID_TOKEN_REQUEST_URL":
+    # ele troca a pagina por OIDC e precisa de id-token: write + pages: write.
+    permissions:
+      pages: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
